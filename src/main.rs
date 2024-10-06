@@ -2,7 +2,14 @@ use bracket_lib::prelude::*;
 const SCREEN_WIDTH: i32 = 80;
 const SCREEN_HEIGHT: i32 = 50;
 const FRAME_DURATION: f32 = 75.0;
-
+struct Obstacle {
+    x: i32,
+    gap_y: i32,
+    size: i32,
+}
+impl Obstacle {
+    fn new(x:i32, score: i32)->Self
+}
 struct State {
     mode: GameMode,
     player: Player,
