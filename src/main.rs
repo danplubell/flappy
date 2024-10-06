@@ -8,12 +8,40 @@ struct Obstacle {
     size: i32,
 }
 impl Obstacle {
-    fn new(x:i32, score: i32)->Self
+    fn new(x: i32, score: i32) -> Self {
+        let mut random = RandomNumberGenerator::new();
+        Self {
+            x,
+            gap_y: random.range(10, 40),
+            size: i32::max(2, 20 - score),
+        }
+    }
+    fn render(&mut self, ctx: &mut BTerm, player_x: i32) {
+        let screen_x = self.x - player_x;
+        let half_size = self.size / 2;
+        // Draw the top half of the obstacle
+        for y in 0..self.gap_y - half_size {
+            ctx.set(screen_x, y, RED, BLACK, to_cp437('|'))
+        }
+        // Draw the bottom half of the obstacle
+        for y in self.gap_y + half_size..SCREEN_HEIGHT {
+            ctx.set(screen_x, y, RED, BLACK, to_cp437('|'))
+        }
+    }
+    fn hit_obstacle(&self, player: &Player) -> bool {
+        let half_size = self.size / 2;
+        let does_x_match = player.x == self.x - half_size;
+        let player_above_gap = player.y < self.gap_y - half_size;
+        let player_below_gap = player.y > self.gap_y + half_size;
+        does_x_match && (player_above_gap || player_below_gap)
+    }
 }
 struct State {
     mode: GameMode,
     player: Player,
     frame_time: f32,
+    obstacle: Obstacle,
+    score: i32,
 }
 struct Player {
     x: i32,
@@ -31,7 +59,7 @@ impl Player {
     fn render(&mut self, ctx: &mut BTerm) {
         ctx.set(0, self.y, YELLOW, BLACK, to_cp437('@'))
     }
-    fn gravity_and_move(&mut self){
+    fn gravity_and_move(&mut self) {
         if self.velocity < 2.0 {
             self.velocity += 0.2;
         }
@@ -49,14 +77,18 @@ impl State {
     fn new() -> Self {
         Self {
             mode: GameMode::Menu,
-            player: Player::new(5,25),
+            player: Player::new(5, 25),
             frame_time: 0.0,
+            obstacle: Obstacle::new(SCREEN_WIDTH, 0),
+            score: 0,
         }
     }
     fn restart(&mut self) {
-        self.player = Player::new(5,25);
+        self.player = Player::new(5, 25);
         self.frame_time = 0.0;
+        self.obstacle = Obstacle::new(SCREEN_WIDTH, 0);
         self.mode = GameMode::Playing;
+        self.score = 0;
     }
     fn main_menu(&mut self, ctx: &mut BTerm) {
         ctx.cls();
@@ -80,18 +112,26 @@ impl State {
             self.frame_time -= 0.0;
             self.player.gravity_and_move()
         }
-        if let Some(VirtualKeyCode::Space) = ctx.key{
+        if let Some(VirtualKeyCode::Space) = ctx.key {
             self.player.flap();
         }
         self.player.render(ctx);
-        ctx.print(0,0,"Press SPACE to flap.");
+        ctx.print(0, 0, "Press SPACE to flap.");
+        ctx.print(0, 1, &format!("Score: {}", self.score));
+        self.obstacle.render(ctx, self.player.x);
+        if self.player.x > self.obstacle.x {
+            self.score += 1;
+            self.obstacle = Obstacle::new(self.player.x + SCREEN_WIDTH, self.score);
+        }
         if self.player.y > SCREEN_HEIGHT {
+            self.obstacle.hit_obstacle(&self.player);
             self.mode = GameMode::End;
         }
     }
     fn dead(&mut self, ctx: &mut BTerm) {
         ctx.cls();
         ctx.print_centered(5, "Your are DEAD!");
+        ctx.print_centered(6, &format!("Your earned {} points", self.score));
         ctx.print_centered(8, "(P) Play Again");
         ctx.print_centered(9, "(Q) Quit Game");
         if let Some(key) = ctx.key {
