@@ -1,18 +1,57 @@
 use bracket_lib::prelude::*;
 struct State {
-    mode: GameMode
+    mode: GameMode,
 }
 impl State {
-    fn new()-> Self {
+    fn new() -> Self {
         Self {
             mode: GameMode::Menu,
+        }
+    }
+    fn restart(&mut self) {
+        self.mode = GameMode::Playing;
+    }
+    fn main_menu(&mut self, ctx: &mut BTerm) {
+        ctx.cls();
+        ctx.print_centered(5, "Welcome to Flappy Dragon");
+        ctx.print_centered(8, "(P) Play");
+        ctx.print_centered(9, "(Q) Quit Game");
+        if let Some(key) = ctx.key {
+            match key {
+                VirtualKeyCode::P => {
+                    self.restart();
+                }
+                VirtualKeyCode::Q => ctx.quitting = true,
+                _ => {}
+            }
+        }
+    }
+    fn play(&mut self, _ctx: &mut BTerm) {
+        self.mode = GameMode::End;
+    }
+    fn dead(&mut self, ctx: &mut BTerm) {
+        ctx.cls();
+        ctx.print_centered(5, "Your are DEAD!");
+        ctx.print_centered(8, "(P) Play Again");
+        ctx.print_centered(9, "(Q) Quit Game");
+        if let Some(key) = ctx.key {
+            match key {
+                VirtualKeyCode::P => {
+                    self.restart();
+                }
+                VirtualKeyCode::Q => ctx.quitting = true,
+                _ => {}
+            }
         }
     }
 }
 impl GameState for State {
     fn tick(&mut self, ctx: &mut BTerm) {
-        ctx.cls();
-        ctx.print(1, 1, "Hello, Bracket Terminal");
+        match self.mode {
+            GameMode::Menu => self.main_menu(ctx),
+            GameMode::Playing => self.play(ctx),
+            GameMode::End => self.dead(ctx),
+        }
     }
 }
 enum GameMode {
@@ -20,10 +59,10 @@ enum GameMode {
     Playing,
     End,
 }
+
 fn main() -> BError {
     let context = BTermBuilder::simple80x50()
         .with_title("Flappy Bird")
         .build()?;
-    main_loop(context, State{})
-    
+    main_loop(context, State::new())
 }
